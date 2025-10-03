@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notion-Style Calendar</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      color: white;
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+      background-color: #121212;
+    }
+    .calendar {
+      width: 95%;
+      max-width: 1000px;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .header h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      color: rgba(255, 255, 255, 0.938);
+    }
+    .header button {
+      padding: 2px 5px;
+      border: none;
+      background: #191919;
+      color: rgba(255, 255, 255, 0.938);
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+    .day {
+      border: 1px solid #e0e0e0f3;
+      min-height: 120px;
+      padding: 6px;
+      border-radius: 8px;
+      position: relative;
+      overflow: visible;
+      transition: 0.2s;
+    }
+    .day-number {
+      font-weight: bold;
+      margin-bottom: 5px;
+      font-size: 14px;
+      color: #fcfcfdf3;
+    }
+    .task-item {
+      font-size: 12px;
+      margin: 2px 0;
+      display: flex;
+      align-items: center;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .task-item input[type="checkbox"] {
+      margin-right: 5px;
+    }
+    .task-completed {
+      text-decoration: line-through;
+      color: #888;
+    }
+    .add-task-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      font-weight: bold;
+      font-size: 18px;
+      color: #ffffff;
+      cursor: pointer;
+      display: none;
+    }
+    .day:hover .add-task-btn {
+      display: block;
+    }
+    .task-input {
+      font-size: 12px;
+      width: 100%;
+      margin-top: 2px;
+      padding: 2px 4px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .delete-btn {
+      margin-left: 5px;
+      cursor: pointer;
+      display: none;
+      color: #ff4d4d;
+    }
+    .task-item:hover .delete-btn {
+      display: inline;
+    }
+  </style>
+</head>
+<body>
+  <div class="calendar">
+    <div class="header">
+      <button onclick="prevMonth()">◀</button>
+      <h2 id="monthYear"></h2>
+      <button onclick="nextMonth()">▶</button>
+    </div>
+    <div class="days" id="calendar"></div>
+  </div>
+
+  <script>
+    const calendar = document.getElementById("calendar");
+    const monthYear = document.getElementById("monthYear");
+    let currentDate = new Date();
+    let tasks = JSON.parse(localStorage.getItem("calendarTasks")) || {};
+
+    function renderCalendar() {
+      calendar.innerHTML = "";
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+
+      monthYear.textContent = firstDay.toLocaleString("default", { month: "long" }) + " " + year;
+
+      // Empty slots for alignment
+      for (let i = 0; i < firstDay.getDay(); i++) {
+        const emptyDiv = document.createElement("div");
+        calendar.appendChild(emptyDiv);
+      }
+
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const dateStr = `${year}-${month+1}-${day}`;
+        const dayDiv = document.createElement("div");
+        dayDiv.className = "day";
+
+        const numberDiv = document.createElement("div");
+        numberDiv.className = "day-number";
+        numberDiv.textContent = day;
+        dayDiv.appendChild(numberDiv);
+
+        if (!tasks[dateStr]) tasks[dateStr] = [];
+
+        // Render tasks
+        tasks[dateStr].forEach((task, idx) => {
+          const taskDiv = document.createElement("div");
+          taskDiv.className = "task-item";
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = task.done;
+          checkbox.onchange = () => {
+            task.done = checkbox.checked;
+            saveTasks();
+            renderCalendar();
+          };
+
+          const textSpan = document.createElement("span");
+          textSpan.textContent = task.text;
+          if (task.done) textSpan.classList.add("task-completed");
+
+          const deleteBtn = document.createElement("span");
+          deleteBtn.textContent = "❌";
+          deleteBtn.className = "delete-btn";
+          deleteBtn.onclick = () => {
+            tasks[dateStr].splice(idx, 1);
+            saveTasks();
+            renderCalendar();
+          };
+
+          taskDiv.appendChild(checkbox);
+          taskDiv.appendChild(textSpan);
+          taskDiv.appendChild(deleteBtn);
+          dayDiv.appendChild(taskDiv);
+        });
+
+        const addBtn = document.createElement("div");
+        addBtn.className = "add-task-btn";
+        addBtn.textContent = "+";
+        addBtn.onclick = (e) => {
+          e.stopPropagation();
+          const newTask = { text: "", done: false };
+          tasks[dateStr].push(newTask);
+          renderCalendar();
+          setTimeout(() => {
+            const inputs = dayDiv.querySelectorAll('.task-input');
+            if (inputs.length) inputs[inputs.length -1].focus();
+          }, 10);
+        };
+        dayDiv.appendChild(addBtn);
+
+        // Input fields for empty tasks
+        tasks[dateStr].forEach((task, idx) => {
+          if (task.text === "") {
+            const input = document.createElement("input");
+            input.className = "task-input";
+            input.placeholder = "New task...";
+            input.value = task.text;
+            input.onkeydown = (event) => {
+              if(event.key === 'Enter') {
+                task.text = input.value.trim() || "Unnamed Task";
+                saveTasks();
+                renderCalendar();
+              }
+            };
+            dayDiv.appendChild(input);
+          }
+        });
+
+        calendar.appendChild(dayDiv);
+      }
+    }
+
+    function prevMonth() {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      renderCalendar();
+    }
+
+    function nextMonth() {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      renderCalendar();
+    }
+
+    function saveTasks() {
+      localStorage.setItem("calendarTasks", JSON.stringify(tasks));
+    }
+
+    renderCalendar();
+  </script>
+</body>
+</html>
